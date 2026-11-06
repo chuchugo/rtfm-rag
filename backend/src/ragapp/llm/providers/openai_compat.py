@@ -12,6 +12,8 @@ from ragapp.llm.base import (
     build_user_content,
 )
 
+from ragapp.llm.tracing import traceable
+
 
 class OpenAICompatProvider:
     """Works against OpenAI itself, or any endpoint that mirrors OpenAI's
@@ -29,11 +31,17 @@ class OpenAICompatProvider:
             timeout=120,
         )
 
+    @traceable(run_type="llm", name="openai.chat_stream")
     def chat_stream(
-        self, user_message: str, context: str, system_prompt: str | None = None
+        self,
+        user_message: str,
+        context: str,
+        history: list[Message] | None = None,
+        system_prompt: str | None = None,
     ) -> Iterator[str]:
         messages = [
             {"role": "system", "content": system_prompt or SYSTEM_PROMPT},
+            *(history or []),
             {"role": "user", "content": build_user_content(user_message, context)},
         ]
         with self._client.stream(
@@ -52,6 +60,7 @@ class OpenAICompatProvider:
                 if delta:
                     yield delta
 
+    @traceable(run_type="llm", name="openai.complete_with_tools")
     def complete_with_tools(
         self, messages: list[Message], tools: list[ToolSpec], system_prompt: str
     ) -> AssistantTurn:

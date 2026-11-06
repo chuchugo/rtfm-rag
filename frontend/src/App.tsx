@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import ChatMessage from "./ChatMessage";
 import StatsPanel from "./StatsPanel";
 import { ChartIcon, ManualIcon, SendIcon } from "./Icons";
-import type { ChatResponseBody, Document, Message } from "./types";
+import type { ChatResponseBody, ConversationTurn, Document, Message } from "./types";
 
 const SUGGESTIONS = [
   "How do I restart the touchscreen?",
@@ -33,6 +33,13 @@ export default function App() {
     const question = (text ?? input).trim();
     if (!question || loading) return;
     setInput("");
+    // Capture history before the state update — messages still refers to
+    // the previous state here (React batches the update), so this is exactly
+    // the conversation so far, not including the message being sent now.
+    const history: ConversationTurn[] = messages.map((m) => ({
+      role: m.role,
+      content: m.content,
+    }));
     setMessages((prev) => [...prev, { role: "user", content: question }]);
     setLoading(true);
 
@@ -40,7 +47,7 @@ export default function App() {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: question }),
+        body: JSON.stringify({ message: question, history }),
       });
       const data: ChatResponseBody = await response.json();
       setMessages((prev) => [
@@ -51,6 +58,7 @@ export default function App() {
           sources: data.sources,
           queryLogId: data.query_log_id,
           refused: data.refused,
+          needsClarification: data.needs_clarification,
           retrievalLatencyMs: data.retrieval_latency_ms,
           embedLatencyMs: data.embed_latency_ms,
           searchLatencyMs: data.search_latency_ms,

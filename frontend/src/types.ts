@@ -17,6 +17,7 @@ export interface Message {
   queryLogId?: string;
   feedback?: 1 | -1;
   refused?: boolean;
+  needsClarification?: boolean;
   retrievalLatencyMs?: number;
   embedLatencyMs?: number;
   searchLatencyMs?: number;
@@ -24,11 +25,17 @@ export interface Message {
   retrievedChunks?: RetrievedChunk[];
 }
 
+export interface ConversationTurn {
+  role: "user" | "assistant";
+  content: string;
+}
+
 export interface ChatResponseBody {
   answer: string;
   sources: Source[];
   query_log_id: string;
   refused: boolean;
+  needs_clarification: boolean;
   retrieval_latency_ms: number;
   embed_latency_ms: number;
   search_latency_ms: number;

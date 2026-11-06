@@ -27,7 +27,7 @@ export default function ChatMessage({ message: m, onFeedback }: Props) {
           </div>
         )}
 
-        {m.retrievedChunks && (
+        {m.retrievedChunks && m.retrievedChunks.length > 0 && !m.needsClarification && (
           <>
             <button
               className={`details-toggle ${detailsOpen ? "open" : ""}`}

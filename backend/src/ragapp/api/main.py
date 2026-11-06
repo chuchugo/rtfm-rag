@@ -4,7 +4,10 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from ragapp.chat.clarifier import check_needs_clarification
+from ragapp.config import settings
 from ragapp.eval.heuristics import extract_citations, is_refusal
+from ragapp.llm.base import SUMMARY_SYSTEM_PROMPT, Message
 from ragapp.llm.factory import create_llm_client
 from ragapp.retrieval.retriever import Retriever
 from ragapp.retrieval.store import VectorStore, init_schema
@@ -29,8 +32,36 @@ llm_client = create_llm_client()
 store = VectorStore()
 
 
+def _apply_history_window(history: list[Message], llm_client) -> list[Message]:
+    """Keep at most max_history_turns Q&A pairs verbatim.
+    When exceeded, summarize the overflow with the LLM and inject the summary
+    as a leading message pair so the model retains product/question context."""
+    max_messages = settings.max_history_turns * 2
+    if len(history) <= max_messages:
+        return history
+
+    overflow = history[: len(history) - max_messages]
+    recent = history[len(history) - max_messages :]
+
+    transcript = "\n".join(f"{m['role'].upper()}: {m['content']}" for m in overflow)
+    summary = "".join(
+        llm_client.chat_stream(
+            user_message=transcript,
+            context="",
+            system_prompt=SUMMARY_SYSTEM_PROMPT,
+        )
+    )
+
+    return [
+        {"role": "user", "content": f"[Summary of earlier conversation: {summary}]"},
+        {"role": "assistant", "content": "Understood, I have the context from our earlier conversation."},
+        *recent,
+    ]
+
+
 class ChatRequest(BaseModel):
     message: str
+    history: list[Message] = []
 
 
 class Source(BaseModel):
@@ -50,6 +81,7 @@ class ChatResponse(BaseModel):
     sources: list[Source]
     query_log_id: str
     refused: bool
+    needs_clarification: bool = False
     retrieval_latency_ms: int
     embed_latency_ms: int
     search_latency_ms: int
@@ -83,6 +115,23 @@ def stats():
 
 @app.post("/api/chat", response_model=ChatResponse)
 def chat(request: ChatRequest):
+    history = _apply_history_window(request.history, llm_client)
+
+    clarification = check_needs_clarification(request.message, history, llm_client)
+    if clarification:
+        return ChatResponse(
+            answer=clarification,
+            sources=[],
+            query_log_id="",
+            refused=False,
+            needs_clarification=True,
+            retrieval_latency_ms=0,
+            embed_latency_ms=0,
+            search_latency_ms=0,
+            generation_latency_ms=0,
+            retrieved_chunks=[],
+        )
+
     retrieval_start = time.monotonic()
     retrieval = retriever.retrieve_with_timing(request.message)
     results = retrieval.results
@@ -93,7 +142,7 @@ def chat(request: ChatRequest):
     )
 
     generation_start = time.monotonic()
-    answer = "".join(llm_client.chat_stream(request.message, context))
+    answer = "".join(llm_client.chat_stream(request.message, context, history=history))
     generation_latency_ms = int((time.monotonic() - generation_start) * 1000)
 
     seen: set[tuple[str, int]] = set()

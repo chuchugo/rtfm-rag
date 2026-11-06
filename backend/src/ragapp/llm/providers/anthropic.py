@@ -4,6 +4,7 @@ from collections.abc import Iterator
 import httpx
 
 from ragapp.llm.base import (
+    SUMMARY_SYSTEM_PROMPT,
     SYSTEM_PROMPT,
     AssistantTurn,
     Message,
@@ -11,6 +12,7 @@ from ragapp.llm.base import (
     ToolSpec,
     build_user_content,
 )
+from ragapp.llm.tracing import traceable
 
 ANTHROPIC_VERSION = "2023-06-01"
 
@@ -35,9 +37,18 @@ class AnthropicProvider:
             timeout=120,
         )
 
+    @traceable(run_type="llm", name="anthropic.chat_stream")
     def chat_stream(
-        self, user_message: str, context: str, system_prompt: str | None = None
+        self,
+        user_message: str,
+        context: str,
+        history: list[Message] | None = None,
+        system_prompt: str | None = None,
     ) -> Iterator[str]:
+        messages = [
+            *(history or []),
+            {"role": "user", "content": build_user_content(user_message, context)},
+        ]
         with self._client.stream(
             "POST",
             "/messages",
@@ -45,7 +56,7 @@ class AnthropicProvider:
                 "model": self.model,
                 "max_tokens": self.max_tokens,
                 "system": system_prompt or SYSTEM_PROMPT,
-                "messages": [{"role": "user", "content": build_user_content(user_message, context)}],
+                "messages": messages,
                 "stream": True,
             },
         ) as response:
@@ -59,6 +70,7 @@ class AnthropicProvider:
                     if delta:
                         yield delta
 
+    @traceable(run_type="llm", name="anthropic.complete_with_tools")
     def complete_with_tools(
         self, messages: list[Message], tools: list[ToolSpec], system_prompt: str
     ) -> AssistantTurn:
