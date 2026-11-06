@@ -1,10 +1,11 @@
 import hashlib
+import json
 from contextlib import contextmanager
 from pathlib import Path
 
+import faiss
+import numpy as np
 import psycopg
-from pgvector import Vector
-from pgvector.psycopg import register_vector
 from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
 
@@ -13,15 +14,7 @@ from ragapp.models import Chunk, Document
 
 SCHEMA_PATH = Path(__file__).parent / "schema.sql"
 
-# Lazily created: must come after init_schema() has run, since the pool's
-# `configure` hook (register_vector) requires the `vector` type to already
-# exist. Pooling connections (rather than opening one per call, as before)
-# avoids paying TCP + pgvector type registration cost on every single query.
 _pool: ConnectionPool | None = None
-
-
-def _configure_connection(conn: psycopg.Connection) -> None:
-    register_vector(conn)
 
 
 def _get_pool() -> ConnectionPool:
@@ -31,7 +24,6 @@ def _get_pool() -> ConnectionPool:
             settings.database_url,
             min_size=1,
             max_size=5,
-            configure=_configure_connection,
             kwargs={"autocommit": True},
         )
     return _pool
@@ -44,8 +36,6 @@ def get_connection():
 
 
 def init_schema() -> None:
-    # Don't use get_connection()/the pool here: register_vector() requires
-    # the `vector` type to already exist, but this is what creates it.
     conn = psycopg.connect(settings.database_url, autocommit=True)
     try:
         conn.execute(SCHEMA_PATH.read_text())
@@ -58,6 +48,51 @@ def content_hash(text: str) -> str:
 
 
 class VectorStore:
+    """Hybrid store: Postgres for documents + query logs, FAISS for vector search.
+
+    Chunk embeddings and metadata live entirely in FAISS — no chunks table in Postgres.
+    The FAISS index and a companion meta.json file are persisted to faiss_index_path.
+    """
+
+    def __init__(self, index_dir: str | None = None):
+        self._dir = Path(index_dir or settings.faiss_index_path)
+        self._dir.mkdir(parents=True, exist_ok=True)
+        self._index_file = self._dir / "index.bin"
+        self._meta_file = self._dir / "meta.json"
+        self._meta: list[dict] = []
+        self._index: faiss.Index | None = None
+        self._load()
+
+    # --- FAISS persistence ---
+
+    def _load(self) -> None:
+        if self._meta_file.exists():
+            with open(self._meta_file) as f:
+                self._meta = json.load(f)
+        if self._index_file.exists() and self._meta:
+            self._index = faiss.read_index(str(self._index_file))
+
+    def _save(self) -> None:
+        with open(self._meta_file, "w") as f:
+            json.dump(self._meta, f)
+        if self._index is not None and self._index.ntotal > 0:
+            faiss.write_index(self._index, str(self._index_file))
+        elif self._index_file.exists():
+            self._index_file.unlink()
+
+    def _rebuild_index(self) -> None:
+        if not self._meta:
+            self._index = None
+            return
+        dim = len(self._meta[0]["embedding"])
+        embeddings = np.array([m["embedding"] for m in self._meta], dtype=np.float32)
+        faiss.normalize_L2(embeddings)
+        index = faiss.IndexFlatIP(dim)
+        index.add(embeddings)
+        self._index = index
+
+    # --- Document store (Postgres) ---
+
     def upsert_document(self, filename: str, title: str, full_text_hash: str) -> str:
         with get_connection() as conn:
             row = conn.execute(
@@ -73,18 +108,26 @@ class VectorStore:
 
     def upsert_chunks(self, document_id: str, chunks: list[Chunk]) -> None:
         with get_connection() as conn:
-            conn.execute("DELETE FROM chunks WHERE document_id = %s", (document_id,))
-            with conn.cursor() as cur:
-                cur.executemany(
-                    """
-                    INSERT INTO chunks (document_id, page_number, chunk_index, content, embedding)
-                    VALUES (%s, %s, %s, %s, %s)
-                    """,
-                    [
-                        (document_id, c.page_number, c.chunk_index, c.content, Vector(c.embedding))
-                        for c in chunks
-                    ],
-                )
+            row = conn.execute(
+                "SELECT filename, title FROM documents WHERE id = %s", (document_id,)
+            ).fetchone()
+        filename, title = (row[0], row[1]) if row else ("", "")
+
+        self._meta = [m for m in self._meta if m["document_id"] != document_id]
+        for chunk in chunks:
+            chunk_id = hashlib.sha256(f"{document_id}:{chunk.chunk_index}".encode()).hexdigest()[:32]
+            self._meta.append({
+                "chunk_id": chunk_id,
+                "document_id": document_id,
+                "filename": filename,
+                "title": title,
+                "content": chunk.content,
+                "page_number": chunk.page_number,
+                "chunk_index": chunk.chunk_index,
+                "embedding": chunk.embedding,
+            })
+        self._rebuild_index()
+        self._save()
 
     def search(
         self,
@@ -92,38 +135,42 @@ class VectorStore:
         top_k: int,
         document_ids: list[str] | None = None,
     ) -> list[tuple[Chunk, Document]]:
-        # document_ids is None -> search every ingested document (unchanged default
-        # behavior). Pass a list to scope the search, e.g. to one product's manual.
-        filter_sql = "AND c.document_id = ANY(%(document_ids)s::uuid[])" if document_ids else ""
-        with get_connection() as conn:
-            rows = conn.execute(
-                f"""
-                SELECT c.id, c.content, c.page_number, c.chunk_index, d.id, d.filename, d.title
-                FROM chunks c
-                JOIN documents d ON d.id = c.document_id
-                WHERE true
-                {filter_sql}
-                ORDER BY c.embedding <=> %(query_embedding)s
-                LIMIT %(top_k)s
-                """,
-                {
-                    "document_ids": document_ids,
-                    "query_embedding": Vector(query_embedding),
-                    "top_k": top_k,
-                },
-            ).fetchall()
-        return [
-            (
-                Chunk(id=str(r[0]), content=r[1], page_number=r[2], chunk_index=r[3], document_id=str(r[4])),
-                Document(id=str(r[4]), filename=r[5], title=r[6]),
-            )
-            for r in rows
-        ]
+        if self._index is None or self._index.ntotal == 0:
+            return []
+        q = np.array([query_embedding], dtype=np.float32)
+        faiss.normalize_L2(q)
+        # Over-fetch when filtering so we still get top_k after the filter
+        search_k = min(self._index.ntotal, top_k * 10 if document_ids else top_k)
+        _, indices = self._index.search(q, search_k)
+        results = []
+        for idx in indices[0]:
+            if idx < 0 or idx >= len(self._meta):
+                continue
+            m = self._meta[idx]
+            if document_ids and m["document_id"] not in document_ids:
+                continue
+            results.append((
+                Chunk(
+                    id=m["chunk_id"],
+                    content=m["content"],
+                    page_number=m["page_number"],
+                    chunk_index=m["chunk_index"],
+                    document_id=m["document_id"],
+                ),
+                Document(id=m["document_id"], filename=m["filename"], title=m["title"]),
+            ))
+            if len(results) >= top_k:
+                break
+        return results
 
     def list_documents(self) -> list[Document]:
         with get_connection() as conn:
-            rows = conn.execute("SELECT id, filename, title FROM documents ORDER BY ingested_at").fetchall()
+            rows = conn.execute(
+                "SELECT id, filename, title FROM documents ORDER BY ingested_at"
+            ).fetchall()
         return [Document(id=str(r[0]), filename=r[1], title=r[2]) for r in rows]
+
+    # --- Query logging (Postgres) ---
 
     def log_query(
         self,

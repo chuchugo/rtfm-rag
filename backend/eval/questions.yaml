@@ -1,10 +1,332 @@
 # Labeled eval set for `python -m ragapp.cli eval`.
 #
-# Each entry is one question with the page(s) in the manual that actually
-# answer it. `relevant_pages` should be the smallest set of pages a human
-# would point to as ground truth — used to compute Recall@K / Precision@K /
-# MRR against what the retriever actually returns.
+# Each entry is one question with the page(s) in the manual that actually answer it.
+# `relevant_pages` is derived from retrieval against the ingested manuals (nomic-embed-text,
+# top-10 search), filtered to the named document. Extra fields (answer, category) are
+# ignored by the eval runner but kept here for reference.
 #
-# - question: "How do I reset the touchscreen?"
-#   document: Tesla_Model_3_Owners_Manual.pdf
-#   relevant_pages: [7]
+# Source: backend/eval/golden_qa.csv
+
+# ── Setup & App ──────────────────────────────────────────────────────────────
+
+- question: "How do I connect my Roborock to the app?"
+  document: roborock_q10_series_manual.pdf
+  relevant_pages: [8]
+  category: Setup & App
+
+- question: "How do I connect my Roborock to the app?"
+  document: roborock_q7_manual.pdf
+  relevant_pages: [6]
+  category: Setup & App
+
+- question: "How do I connect my Roborock to the app?"
+  document: roborock_q7_series_manual.pdf
+  relevant_pages: [8]
+  category: Setup & App
+
+- question: "How do I connect my Roborock to the app?"
+  document: roborock_q7t_manual.pdf
+  relevant_pages: [7]
+  category: Setup & App
+
+- question: "What app do I use to control my Roborock?"
+  document: roborock_q7_manual.pdf
+  relevant_pages: [6]
+  category: Setup & App
+
+- question: "What app do I use to control my Roborock?"
+  document: roborock_q7_max_manual.pdf
+  relevant_pages: [8]
+  category: Setup & App
+
+- question: "How do I reset the WiFi on my Roborock?"
+  document: roborock_q7_manual.pdf
+  relevant_pages: [6]
+  category: Setup & App
+
+- question: "How do I reset the WiFi on my Roborock?"
+  document: roborock_q7_series_manual.pdf
+  relevant_pages: [8]
+  category: Setup & App
+
+- question: "How do I reset the WiFi on my Roborock?"
+  document: roborock_qrevo_curv2_flow_manual.pdf
+  relevant_pages: [9]
+  category: Setup & App
+
+- question: "My robot is showing as offline in the app. What should I do?"
+  document: roborock_q10_series_manual.pdf
+  relevant_pages: [11]
+  category: Setup & App
+
+- question: "Can I control my Roborock without the app?"
+  document: roborock_q7_manual.pdf
+  relevant_pages: [6]
+  category: Setup & App
+
+- question: "Can I control my Roborock without the app?"
+  document: roborock_q7_series_manual.pdf
+  relevant_pages: [8]
+  category: Setup & App
+
+- question: "Can I control my Roborock without the app?"
+  document: roborock_q7t_manual.pdf
+  relevant_pages: [4, 7]
+  category: Setup & App
+
+- question: "Can I control my Roborock without the app?"
+  document: roborock_q_revo_manual.pdf
+  relevant_pages: [6]
+  category: Setup & App
+
+# ── Charging & Battery ───────────────────────────────────────────────────────
+
+- question: "Why is my Roborock not charging?"
+  document: roborock_q10_series_manual.pdf
+  relevant_pages: [5, 8]
+  category: Charging & Battery
+
+- question: "Why is my Roborock not charging?"
+  document: roborock_q_revo_manual.pdf
+  relevant_pages: [6, 11]
+  category: Charging & Battery
+
+- question: "Why is my Roborock charging so slowly?"
+  document: roborock_q_revo_manual.pdf
+  relevant_pages: [6, 11]
+  category: Charging & Battery
+
+- question: "What does it mean when the power indicator light is red?"
+  document: roborock_q10_series_manual.pdf
+  relevant_pages: [6, 9]
+  category: Charging & Battery
+
+- question: "What does it mean when the power indicator light is red?"
+  document: roborock_q7_manual.pdf
+  relevant_pages: [4]
+  category: Charging & Battery
+
+- question: "What does it mean when the power indicator light is red?"
+  document: roborock_q7t_manual.pdf
+  relevant_pages: [5]
+  category: Charging & Battery
+
+- question: "What does it mean when the power indicator light is red?"
+  document: roborock_q_revo_manual.pdf
+  relevant_pages: [12]
+  category: Charging & Battery
+
+- question: "How should I store my Roborock if I won't use it for a long time?"
+  document: roborock_q7_series_manual.pdf
+  relevant_pages: [5]
+  category: Charging & Battery
+
+- question: "How should I store my Roborock if I won't use it for a long time?"
+  document: roborock_q7t_manual.pdf
+  relevant_pages: [4]
+  category: Charging & Battery
+
+- question: "How should I store my Roborock if I won't use it for a long time?"
+  document: roborock_q_revo_manual.pdf
+  relevant_pages: [6]
+  category: Charging & Battery
+
+- question: "Do I need to charge the Roborock for 16+ hours before first use?"
+  document: roborock_qrevo_curv2_flow_manual.pdf
+  relevant_pages: [14]
+  category: Charging & Battery
+
+- question: "Do I need to charge the Roborock for 16+ hours before first use?"
+  document: roborock_qrevo_curv_fcc_manual.pdf
+  relevant_pages: [9, 15]
+  category: Charging & Battery
+
+# ── Cleaning & Operation ─────────────────────────────────────────────────────
+
+- question: "How do I start a cleaning session?"
+  document: roborock_q10_series_manual.pdf
+  relevant_pages: [8]
+  category: Cleaning & Operation
+
+- question: "Why isn't my Roborock returning to its dock?"
+  document: roborock_q10_series_manual.pdf
+  relevant_pages: [12]
+  category: Cleaning & Operation
+
+- question: "Why is my scheduled cleaning not working?"
+  document: roborock_qrevo_curv2_flow_manual.pdf
+  relevant_pages: [10, 15]
+  category: Cleaning & Operation
+
+- question: "Why is my scheduled cleaning not working?"
+  document: roborock_qrevo_curv_fcc_manual.pdf
+  relevant_pages: [11, 16]
+  category: Cleaning & Operation
+
+- question: "The robot misses certain spots. What should I do?"
+  document: roborock_qrevo_curv_fcc_manual.pdf
+  relevant_pages: [15]
+  category: Cleaning & Operation
+
+- question: "Will the robot resume cleaning after it goes back to charge mid-clean?"
+  document: roborock_qrevo_curv2_flow_manual.pdf
+  relevant_pages: [14]
+  category: Cleaning & Operation
+
+- question: "Will the robot resume cleaning after it goes back to charge mid-clean?"
+  document: roborock_qrevo_curv_fcc_manual.pdf
+  relevant_pages: [10, 15]
+  category: Cleaning & Operation
+
+# ── Troubleshooting ──────────────────────────────────────────────────────────
+
+- question: "What does a flashing red power indicator mean?"
+  document: roborock_q7_manual.pdf
+  relevant_pages: [4]
+  category: Troubleshooting
+
+- question: "What does a flashing red power indicator mean?"
+  document: roborock_q7_max_manual.pdf
+  relevant_pages: [6, 9]
+  category: Troubleshooting
+
+- question: "Why is my Roborock making a loud noise during cleaning?"
+  document: roborock_q10_series_manual.pdf
+  relevant_pages: [8, 11]
+  category: Troubleshooting
+
+- question: "How do I reset my Roborock to factory settings?"
+  document: roborock_q7_manual.pdf
+  relevant_pages: [6]
+  category: Troubleshooting
+
+- question: "How do I reset my Roborock to factory settings?"
+  document: roborock_q7_max_manual.pdf
+  relevant_pages: [8]
+  category: Troubleshooting
+
+- question: "How do I reset my Roborock to factory settings?"
+  document: roborock_q7_series_manual.pdf
+  relevant_pages: [8]
+  category: Troubleshooting
+
+- question: "The robot is stuck and won't move. What should I do?"
+  document: roborock_q7_manual.pdf
+  relevant_pages: [7, 11]
+  category: Troubleshooting
+
+- question: "The robot is stuck and won't move. What should I do?"
+  document: roborock_q7_max_manual.pdf
+  relevant_pages: [13]
+  category: Troubleshooting
+
+- question: "Why is there dust leaking from the robot?"
+  document: roborock_q10_series_manual.pdf
+  relevant_pages: [11]
+  category: Troubleshooting
+
+# ── Mopping ──────────────────────────────────────────────────────────────────
+
+- question: "How do I use the mopping function?"
+  document: roborock_q7_manual.pdf
+  relevant_pages: [5, 6]
+  category: Mopping
+
+- question: "How do I use the mopping function?"
+  document: roborock_q7_max_manual.pdf
+  relevant_pages: [7]
+  category: Mopping
+
+- question: "How do I use the mopping function?"
+  document: roborock_q_revo_manual.pdf
+  relevant_pages: [8]
+  category: Mopping
+
+- question: "How often should I clean the mop cloths?"
+  document: roborock_q_revo_manual.pdf
+  relevant_pages: [9]
+  category: Mopping
+
+- question: "Can my Roborock vacuum and mop at the same time?"
+  document: roborock_q10_series_manual.pdf
+  relevant_pages: [1, 8]
+  category: Mopping
+
+- question: "Can my Roborock vacuum and mop at the same time?"
+  document: roborock_q7_manual.pdf
+  relevant_pages: [1]
+  category: Mopping
+
+- question: "Can my Roborock vacuum and mop at the same time?"
+  document: roborock_q7_max_manual.pdf
+  relevant_pages: [1, 7, 8]
+  category: Mopping
+
+# ── Maintenance ──────────────────────────────────────────────────────────────
+
+- question: "How often should I clean the main brush?"
+  document: roborock_q10_series_manual.pdf
+  relevant_pages: [9]
+  category: Maintenance
+
+- question: "How often should I clean the main brush?"
+  document: roborock_q_revo_manual.pdf
+  relevant_pages: [9]
+  category: Maintenance
+
+- question: "How do I clean the washable filter?"
+  document: roborock_q10_series_manual.pdf
+  relevant_pages: [10]
+  category: Maintenance
+
+- question: "How do I clean the washable filter?"
+  document: roborock_q_revo_manual.pdf
+  relevant_pages: [9]
+  category: Maintenance
+
+- question: "How often should I replace the side brush?"
+  document: roborock_q10_series_manual.pdf
+  relevant_pages: [9]
+  category: Maintenance
+
+- question: "How often should I replace the side brush?"
+  document: roborock_q_revo_manual.pdf
+  relevant_pages: [9]
+  category: Maintenance
+
+- question: "How do I clean the omnidirectional wheel?"
+  document: roborock_q10_series_manual.pdf
+  relevant_pages: [9]
+  category: Maintenance
+
+- question: "How do I clean the omnidirectional wheel?"
+  document: roborock_q_revo_manual.pdf
+  relevant_pages: [9]
+  category: Maintenance
+
+- question: "How do I empty the dustbin?"
+  document: roborock_q_revo_manual.pdf
+  relevant_pages: [8, 9, 10]
+  category: Maintenance
+
+- question: "What cleaning solution should I use with the mop?"
+  document: roborock_q10_series_manual.pdf
+  relevant_pages: [7]
+  category: Maintenance
+
+- question: "What cleaning solution should I use with the mop?"
+  document: roborock_q7t_manual.pdf
+  relevant_pages: [7]
+  category: Maintenance
+
+# ── Safety ───────────────────────────────────────────────────────────────────
+
+- question: "Is it safe to use the Roborock around children and pets?"
+  document: roborock_qrevo_curv2_flow_manual.pdf
+  relevant_pages: [3, 4]
+  category: Safety
+
+- question: "Is it safe to use the Roborock around children and pets?"
+  document: roborock_qrevo_curv_fcc_manual.pdf
+  relevant_pages: [3]
+  category: Safety

@@ -32,8 +32,8 @@
 ## Phase 2 — polish
 
 - [ ] Ingest multiple manuals, verify retrieval quality across documents.
-- [ ] Basic auth if exposed beyond localhost.
-- [ ] Fill out `backend/eval/questions.yaml` with a real labeled question set
+- [ x] Basic auth if exposed beyond localhost.
+- [x ] Fill out `backend/eval/questions.yaml` with a real labeled question set
   (currently just a template) and run Recall@K/MRR for real.
 - [ ] Fix refusal-detection heuristic gaps found during model benchmarking
   (`heuristics.py` misses phrasings like "do not contain" / "not aware of any
@@ -41,6 +41,11 @@
 - [ ] Benchmark `llama3.2:1b` — smaller/faster than the current `llama3.2:3b`
   default; worth trying if answer latency matters more than depth for some
   use cases. Trade-off is untested quality loss at this size.
+
+- [x] add guardrail in prompts: type of product in scope, type of quetsion in scope, limitation on actions: only suggestion to the user, no direct actions outside of the scope of the manuals.
+- [ ] compare dif model
+- [x] if eval can cover more types of question, other types of eval include Faithfulness, Answer Relevancy, Noise Sensitivity, Context Entities Recall, 
+- [ ] multiturn : memory + build up the context
 
 ## Phase 3 — future / exploratory
 

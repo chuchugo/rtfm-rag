@@ -16,11 +16,16 @@ from ragapp.retrieval.retriever import Retriever
 MODELS = ["llama3.1", "llama3.2:3b", "qwen3:4b", "gemma3:4b"]
 
 QUESTIONS = [
-    "How do I restart the touchscreen?",
-    "What tire pressure should I use?",
-    "What is the top speed?",
-    "How do I fold the mirrors?",
-    "What is the meaning of life?",  # expect a refusal — not in the manual
+    # Setup
+    "How do I connect my Roborock to the app?",
+    # Charging / troubleshooting
+    "What does it mean when the power indicator light is red?",
+    "Why is my Roborock making a loud noise during cleaning?",
+    # Maintenance
+    "How do I empty the dustbin?",
+    "How do I clean the washable filter?",
+    # Out-of-scope — expect a refusal
+    "What is the best recipe for chocolate chip cookies?",
 ]
 
 
